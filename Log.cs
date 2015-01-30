@@ -76,11 +76,7 @@ namespace dpull
             
             if (LogWriter != null)
             {
-                X.GM.CacheLogs.AddLast(logString);
-                if (!string.IsNullOrEmpty(stackTrace))
-                    X.GM.CacheLogs.AddLast(stackTrace);
-                while (X.GM.CacheLogs.Count > 16)
-                    X.GM.CacheLogs.RemoveFirst();
+                this.SendMessage("CacheLog", new string[]{logString, stackTrace}, SendMessageOptions.DontRequireReceiver);
                 
                 string log = string.Format("{0}<{1}>: {2}", System.DateTime.Now.ToString("MM-dd HH:mm:ss"), type.ToString(), logString);
                 LogWriter.WriteLine(log);
