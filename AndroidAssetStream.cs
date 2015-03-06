@@ -8,6 +8,7 @@ namespace dpull
     {
         AndroidJavaObject AndroidInputStream;
         long AndroidInputStreamLength;
+        long AndroidInputStreamPostion;
          
         public AndroidAssetStream(string fileName)
         {
@@ -28,6 +29,9 @@ namespace dpull
             
             if (AndroidInputStream == null)
                 throw new System.IO.FileNotFoundException("getAssets failed", fileName);
+
+            var obj = AndroidInputStream.GetRawObject();
+            AndroidInputStreamPostion = 0;
         }
         
         public override void Flush ()
@@ -37,7 +41,10 @@ namespace dpull
 
     	public override int Read(byte[] buffer, int offset, int count)
     	{
-    		return Read(AndroidInputStream, buffer, offset, count);
+            var ret = Read(AndroidInputStream, buffer, offset, count);
+            if (ret > 0)
+                AndroidInputStreamPostion += ret;
+            return ret;
     	}
 
         public override long Seek(long offset, System.IO.SeekOrigin origin)
@@ -64,11 +71,11 @@ namespace dpull
         {
             get 
             {
-                throw new NotImplementedException ();
+                return AndroidInputStreamPostion;
             }
             set 
             {
-                throw new NotImplementedException ();
+                throw new NotImplementedException();
             }
         }   
 
@@ -81,10 +88,18 @@ namespace dpull
     		try
     		{
     			var readLen = AndroidJNI.CallIntMethod(javaObject.GetRawObject(), methodID, array);
-    			for (var i = 0; i < readLen; ++i)
+				if (readLen > 0)
+				{
+					var temp = AndroidJNI.FromByteArray(array[0].l);
+					Array.Copy(temp, offset, buffer, offset, readLen);
+				}
+
+				/*
+				for (var i = offset; i < readLen; ++i)
     			{
     				buffer[i] = AndroidJNI.GetByteArrayElement(array[0].l, i);
     			}
+    			*/
     			return readLen;
     		}
     		finally
