@@ -7,39 +7,50 @@ namespace dpull
     public class AndroidAssetStream : System.IO.Stream
     {
         AndroidJavaObject AndroidInputStream;
-        long AndroidInputStreamLength;
-        long AndroidInputStreamPostion;
-         
+        long AndroidInputStreamLength = long.MaxValue;
+        long AndroidInputStreamPostion = 0;
+		         
         public AndroidAssetStream(string fileName)
         {
-            using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
-            {
-                using (var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
-                {
-                    using (var assetManager = activity.Call<AndroidJavaObject>("getAssets")) //android.content.res.AssetManager
-                    {
-                        using (var assetFileDescriptor = assetManager.Call<AndroidJavaObject>("openFd", fileName)) //assets/ //android.content.res.AssetFileDescriptor
-                        {
-                            AndroidInputStreamLength = assetFileDescriptor.Call<long>("getLength");
-                        }
-                        AndroidInputStream = assetManager.Call<AndroidJavaObject>("open", fileName);
-                    }
-                }
-            }
-            
-            if (AndroidInputStream == null)
-                throw new System.IO.FileNotFoundException("getAssets failed", fileName);
+			var noCompressExt = new string[]{
+				".jpg", ".jpeg", ".png", ".gif",
+				".wav", ".mp2", ".mp3", ".ogg", ".aac",
+				".mpg", ".mpeg", ".mid", ".midi", ".smf", ".jet",
+				".rtttl", ".imy", ".xmf", ".mp4", ".m4a",
+				".m4v", ".3gp", ".3gpp", ".3g2", ".3gpp2",
+				".amr", ".awb", ".wma", ".wmv"
+			};
 
-            var obj = AndroidInputStream.GetRawObject();
-            AndroidInputStreamPostion = 0;
-        }
-        
-        public override void Flush ()
-        {
-            throw new NotImplementedException();
-        }
+			var ext = System.IO.Path.GetExtension(fileName);
 
-    	public override int Read(byte[] buffer, int offset, int count)
+			using (var unityPlayer = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
+			{
+				using (var activity = unityPlayer.GetStatic<AndroidJavaObject>("currentActivity"))
+				{
+					using (var assetManager = activity.Call<AndroidJavaObject>("getAssets")) //android.content.res.AssetManager
+					{
+						if (Array.Exists<string>(noCompressExt, (obj)=>{ return obj == ext; }))
+						{
+							using (var assetFileDescriptor = assetManager.Call<AndroidJavaObject>("openFd", fileName)) //assets/ //android.content.res.AssetFileDescriptor
+							{
+								AndroidInputStreamLength = assetFileDescriptor.Call<long>("getLength");
+							}
+						}
+						AndroidInputStream = assetManager.Call<AndroidJavaObject>("open", fileName);
+					}
+				}
+			}
+
+			if (AndroidInputStream == null)
+				throw new System.IO.FileNotFoundException("getAssets failed", fileName);
+		}
+		
+		public override void Flush ()
+		{
+			throw new NotImplementedException();
+		}
+		
+		public override int Read(byte[] buffer, int offset, int count)
     	{
             var ret = Read(AndroidInputStream, buffer, offset, count);
             if (ret > 0)
@@ -49,7 +60,26 @@ namespace dpull
 
         public override long Seek(long offset, System.IO.SeekOrigin origin)
         {
-            throw new NotImplementedException();
+			if (offset - AndroidInputStreamPostion < 0)
+				throw new NotImplementedException();
+				
+			long skip;
+			switch (origin)
+			{
+			case System.IO.SeekOrigin.Begin:
+				skip = AndroidInputStream.Call<long>("skip", offset - AndroidInputStreamPostion);
+				AndroidInputStreamPostion += skip;
+				break;
+
+			case System.IO.SeekOrigin.Current:
+				skip = AndroidInputStream.Call<long>("skip", offset);
+				AndroidInputStreamPostion += skip;
+				break;
+
+			case System.IO.SeekOrigin.End:
+				throw new NotImplementedException();
+			}
+			return AndroidInputStreamPostion;
         }
         
         public override void SetLength(long value)
@@ -62,10 +92,38 @@ namespace dpull
             throw new NotImplementedException();
         }
         
-        public override bool CanRead { get { return AndroidInputStream != null; } }
-        public override bool CanSeek { get { return false;} }
-        public override bool CanWrite { get { return false;} }
-        public override long Length  { get { return AndroidInputStreamLength; } }
+        public override bool CanRead 
+		{ 
+			get 
+			{ 
+				return AndroidInputStream != null;
+			}
+		}
+        public override bool CanSeek 
+		{
+			get
+			{
+				return false;
+			}
+		}
+        public override bool CanWrite 
+		{
+			get 
+			{ 
+				return false;
+			} 
+		}
+        public override long Length 
+		{ 
+			get 
+			{ 
+				if (AndroidInputStreamLength == -1)
+				{
+
+				}
+				return AndroidInputStreamLength;
+			} 
+		}
         
         public override long Position
         {
@@ -78,7 +136,6 @@ namespace dpull
                 throw new NotImplementedException();
             }
         }   
-
 
     	int Read(AndroidJavaObject javaObject, byte[] buffer, int offset, int count)
     	{

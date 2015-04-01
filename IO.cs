@@ -39,8 +39,6 @@ namespace dpull
 
     public class FileEx 
     {
-        static int BufferSize = 1024 * 1024; 
-
         public static Stream OpenRead(string sourceFileName)
         {
             #if UNITY_ANDROID
